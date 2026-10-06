@@ -47,7 +47,9 @@ bool NovaServoController::begin() {
     return false;
   }
 
-  pwm_.setOscillatorFrequency(27000000);
+  // Use the PCA9685 datasheet nominal internal oscillator until the actual
+  // board is measured/calibrated.
+  pwm_.setOscillatorFrequency(25000000);
   pwm_.setPWMFreq(NOVA_SERVO_PWM_FREQUENCY_HZ);
   delay(10);
 
