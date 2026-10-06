@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "NovaConfig.h"
 #include "NovaServoController.h"
