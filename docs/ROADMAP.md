@@ -1,156 +1,116 @@
 # Nova v1 development roadmap
 
-The guiding rule for Nova is simple: **prove each layer on the bench before the next layer depends on it**.
+The rule: **prove each layer on the bench before the next layer depends on it**.
 
 ## Phase 0 - controller bring-up
 
-Current phase.
-
-- [x] Create clean Nova v1 repository
 - [x] ESP32-S3 PlatformIO project
-- [x] PCA9685 driver layer
+- [x] PCA9685 driver
 - [x] 12-joint logical map
-- [x] Outputs disabled at boot
-- [x] Manual single-servo command
-- [x] Manual whole-leg command
+- [x] outputs disabled at boot
+- [x] manual single-servo command
+- [x] manual whole-leg command
 - [x] I2C scanner
-- [ ] Confirm ESP32-S3 SDA/SCL pins on the actual board
-- [ ] Confirm PCA9685 address
-- [ ] Confirm servo channel wiring
-
-Exit condition: every connected device is visible and each servo channel can be identified safely.
+- [ ] confirm actual SDA/SCL pins
+- [ ] confirm PCA9685 address
+- [ ] confirm servo channel wiring
 
 ## Phase 1 - joint calibration
 
-For all 12 joints record:
+For all 12 joints record channel, direction, safe min/max, physical centre and software offset.
 
-- electrical channel
-- physical joint name
-- direction
-- safe minimum angle
-- safe maximum angle
-- physical centre
-- software offset
+- [ ] Front Left
+- [ ] Front Right
+- [ ] Rear Left
+- [ ] Rear Right
 
-Then replace the temporary shared calibration values with per-joint values.
+Exit: logical joint angles produce predictable safe movement.
 
-Exit condition: a requested logical angle produces predictable motion without hitting a hard stop.
+## Phase 2 - geometry and IK
 
-## Phase 2 - sensors
+- [x] body coordinate convention
+- [x] SpotMicro reference geometry
+- [x] body-to-leg conversion
+- [x] 3-DOF inverse kinematics
+- [x] four-leg solver
+- [x] neutral stance solver
+- [x] unreachable-target rejection
+- [x] Serial IK preview
+- [ ] measure actual hip link
+- [ ] measure actual upper leg
+- [ ] measure actual lower leg
+- [ ] measure hip-to-hip length
+- [ ] measure hip-to-hip width
+- [ ] mark geometry confirmed
+- [ ] compare calculated angles with real supported legs
 
-Add the exact IMU and ToF drivers after their modules are identified.
+## Phase 3 - safe poses
 
-IMU goals:
+- [x] software stand pose
+- [x] software crouch pose
+- [ ] calibrated IK-angle to servo-angle mapper
+- [ ] rate-limited interpolation
+- [ ] supported crouch test
+- [ ] supported stand test
+- [ ] sit/rest pose
 
-- accelerometer readings
-- gyro readings
-- roll/pitch estimate
-- calibration
-- stationary bias measurement
+## Phase 4 - first crawl
 
-ToF goals:
+- [x] 8-phase crawl layout
+- [x] alternating body-shift and swing phases
+- [x] only one swing leg at a time
+- [x] triangular foot lift
+- [x] Serial crawl preview
+- [ ] apply body shift to target transform
+- [ ] connect gait targets to calibrated servo output
+- [ ] graceful gait start/stop
+- [ ] supported slow-motion gait test
+- [ ] flat-floor crawl test
 
-- front distance in millimetres
-- range validity
-- filtering
-- configurable obstacle threshold
+## Phase 5 - sensors
 
-Exit condition: stable timestamped sensor data is available without disturbing servo updates.
+IMU:
+- [ ] identify exact module
+- [ ] accelerometer
+- [ ] gyro
+- [ ] roll/pitch
+- [ ] stationary bias calibration
+- [ ] filtering
 
-## Phase 3 - geometry model
+ToF:
+- [ ] identify exact module
+- [ ] front distance
+- [ ] validity
+- [ ] filtering
+- [ ] obstacle threshold
 
-Measure the printed robot and define:
+## Phase 6 - balance
 
-- hip offsets relative to body centre
-- upper leg length
-- lower leg length
-- nominal standing height
-- usable foot workspace
+- [ ] feed IMU roll/pitch into body state
+- [ ] tiny four-feet-planted corrections
+- [ ] correction clamps
+- [ ] damping/tuning
 
-Exit condition: the software model matches the real mechanism.
+## Phase 7 - obstacle behaviour
 
-## Phase 4 - inverse kinematics
+- [ ] slow near obstacle
+- [ ] stop at safety distance
+- [ ] simple turn-away behaviour
 
-Create a leg IK solver that converts a target foot position into three joint angles.
+## Phase 8 - smoother locomotion
 
-Required protections:
+- [ ] better interpolation
+- [ ] acceleration/deceleration
+- [ ] turning
+- [ ] lateral movement
+- [ ] body-height changes
+- [ ] optional diagonal trot
 
-- reject unreachable targets
-- clamp to calibrated joint limits
-- never emit NaN/invalid servo commands
-- log rejected targets during development
+## Phase 9 - operator interface
 
-Exit condition: all four supported legs can trace slow test paths while Nova is off the ground.
-
-## Phase 5 - poses
-
-Implement named body states:
-
-- safe/rest
-- sit
-- stand
-- crouch
-- calibration pose
-
-Transitions must be interpolated rather than instant.
-
-Exit condition: Nova can repeatedly move from rest to stand and back while supported.
-
-## Phase 6 - static balance
-
-Use the IMU to observe body roll and pitch.
-
-First test only tiny corrections while all four feet remain planted.
-
-Exit condition: Nova can compensate for small body attitude changes without oscillating.
-
-## Phase 7 - first gait
-
-Start with a slow crawl gait.
-
-Priorities:
-
-1. stability
-2. repeatability
-3. current draw
-4. graceful stop
-5. speed
-
-Exit condition: Nova can take repeated controlled steps on a flat surface.
-
-## Phase 8 - smoother motion
-
-After crawl is reliable:
-
-- gait interpolation
-- acceleration/deceleration ramps
-- turning
-- lateral movement
-- body height changes
-- optional trot
-
-## Phase 9 - environmental behaviour
-
-Use the front ToF sensor for simple behaviour such as:
-
-- slow down near obstacles
-- stop below a safety distance
-- choose a turn direction
-
-This layer must never bypass lower-level joint and safety limits.
-
-## Phase 10 - control interface
-
-Once locomotion itself is reliable, add the preferred operator interface.
-
-Possible features:
-
-- Wi-Fi control
-- WebUI
-- telemetry
-- battery/current information
-- calibration editor
-- gait tuning
-- OTA firmware updates
-
-The control interface comes after reliable locomotion, not before it.
+- [ ] Wi-Fi control
+- [ ] WebUI
+- [ ] telemetry
+- [ ] calibration editor
+- [ ] gait tuning
+- [ ] OTA

@@ -1,70 +1,86 @@
 # Nova v1
 
-Nova v1 is a rebuild of Nova as a compact, headless, Spot-style quadruped robot.
+Nova v1 is a rebuild of Nova as a compact, headless, SpotMicro-style quadruped robot using an ESP32-S3.
 
-The mechanical platform has **four legs with three joints per leg** (12 servos total). A front-facing Time-of-Flight sensor provides obstacle/distance sensing, while an IMU/gyroscope will provide body attitude and motion feedback.
+Nova has **four legs with three joints per leg** (12 servos total). A front-facing Time-of-Flight sensor will provide obstacle/distance sensing, while an IMU/gyroscope will provide body attitude and motion feedback.
 
-## Planned hardware
+There is deliberately **no robot head**. The ToF sensor sits at the front of the body.
+
+## Hardware
 
 - ESP32-S3 main controller
 - PCA9685 16-channel PWM servo controller
-- 12 servos: 3 joints per leg
+- 12 servos
 - IMU / gyroscope over I2C
-- Front-facing Time-of-Flight sensor over I2C
-- Separate high-current servo power supply
+- Front-facing ToF sensor over I2C
+- Separate high-current servo supply
 - Common ground between servo supply, PCA9685 and ESP32-S3
 
-There is deliberately **no robot head** in this build. The ToF sensor sits at the front of the body.
+## Firmware status
 
-## Current firmware stage
+### Bench-control layer
 
-The repository currently contains the **Phase 0 bench bring-up firmware**.
+- PCA9685 at 50 Hz
+- servo outputs disabled at boot
+- I2C discovery
+- individual servo movement
+- complete three-joint leg movement
+- direct neutral 90-degree bench command
+- immediate output disable
 
-It is intentionally conservative:
+### Motion-maths layer
 
-- Servo outputs start disabled.
-- The PCA9685 is initialised at 50 Hz.
-- The I2C bus is scanned at boot so connected devices can be identified.
-- Individual servos can be moved manually from Serial.
-- A complete leg can be positioned from Serial.
-- All 12 joints can be moved to a neutral 90 degree test position.
-- All PWM outputs can immediately be disabled.
+- Thingiverse/SpotMicro reference geometry
+- body-to-leg coordinate conversion
+- 3-DOF inverse kinematics
+- four-foot pose representation
+- neutral stand pose
+- crouch pose
+- whole-body target solver
+- safe 8-phase crawl-gait preview
+- body-shift targets between single-leg swing phases
 
-This gives us a safe way to confirm wiring, channel order and joint direction before adding calibration, inverse kinematics or walking gaits.
+The motion-maths layer is currently **calculation only**.
+
+## Safety lock
+
+```cpp
+NOVA_KINEMATIC_SERVO_OUTPUT_ENABLED = false
+```
+
+That remains locked until Nova's actual printed geometry and all twelve servo centres/directions are confirmed.
 
 ## Quick start
 
-This project is set up for PlatformIO using the Arduino framework.
+1. Open the repo in VS Code + PlatformIO.
+2. Connect the ESP32-S3.
+3. Build/upload `esp32-s3-devkitc-1`.
+4. Open Serial at **115200 baud**.
+5. Keep Nova supported during servo testing.
 
-1. Open the repository in VS Code with PlatformIO installed.
-2. Connect the ESP32-S3 by USB.
-3. Build and upload the `esp32-s3-devkitc-1` environment.
-4. Open the Serial Monitor at **115200 baud**.
-5. Keep Nova supported with all feet clear of the bench while testing.
+Default I2C:
 
-The default I2C pins are:
-
-| Signal | ESP32-S3 GPIO |
+| Signal | GPIO |
 | --- | ---: |
 | SDA | 8 |
 | SCL | 9 |
 
-The PCA9685 default address is `0x40`.
+PCA9685 address: `0x40`.
 
-If your exact ESP32-S3 board uses different pins, change them in `include/NovaConfig.h`.
+## Servo map
 
-## Servo channel map
-
-| Leg | Hip | Upper leg | Lower leg |
+| Leg | Hip | Upper | Lower |
 | --- | ---: | ---: | ---: |
 | Front Left | 0 | 1 | 2 |
 | Front Right | 3 | 4 | 5 |
 | Rear Left | 6 | 7 | 8 |
 | Rear Right | 9 | 10 | 11 |
 
-PCA9685 channels 12-15 are currently spare.
+Channels 12-15 are spare.
 
 ## Serial commands
+
+### Direct bench control
 
 ```text
 help
@@ -76,62 +92,83 @@ servo <channel> <angle>
 leg <FL|FR|RL|RR> <hip> <upper> <lower>
 ```
 
+### Kinematics / gait preview
+
+```text
+geometry
+stancecalc
+ik <FL|FR|RL|RR> <x_mm> <y_mm> <z_mm>
+crawl <phase 0-7> <progress 0-100>
+```
+
 Examples:
 
 ```text
-servo 0 90
-servo 5 110
-leg FL 90 80 100
-neutral
-disable
+stancecalc
+ik FR 108 -155 94
+crawl 0 0
+crawl 1 50
+crawl 1 100
 ```
 
-Angles are limited to 0-180 degrees. The initial pulse range is deliberately conservative and must be calibrated to the actual servos and printed geometry before Nova is allowed to walk.
+These preview commands **do not move the servos**.
 
-## Safety
+## Reference geometry
 
-Do **not** power twelve servos from the ESP32-S3 or USB supply.
+| Item | Value |
+| --- | ---: |
+| Hip link | 55.0 mm |
+| Upper leg | 107.5 mm |
+| Lower leg | 130.0 mm |
+| Front/rear hip span | 186.0 mm |
+| Left/right hip span | 78.0 mm |
+| Stand height | 155.0 mm |
 
-Use a correctly rated external servo supply connected to the PCA9685 servo power rail. The ESP32-S3, PCA9685 and servo supply must share ground.
-
-During initial calibration:
-
-- keep the robot supported,
-- keep feet clear of the bench,
-- test one channel at a time,
-- use small movements,
-- be ready to disconnect servo power.
-
-## Repository layout
+## Repository structure
 
 ```text
-nova-ver1/
-├── include/
-│   ├── NovaConfig.h
-│   └── NovaServoController.h
-├── src/
-│   ├── main.cpp
-│   └── NovaServoController.cpp
-├── docs/
-│   ├── HARDWARE.md
-│   └── ROADMAP.md
-├── platformio.ini
-└── README.md
+include/
+  NovaConfig.h
+  NovaTypes.h
+  NovaGeometry.h
+  NovaKinematics.h
+  NovaPose.h
+  NovaMotion.h
+  NovaGait.h
+  NovaServoController.h
+
+src/
+  main.cpp
+  NovaKinematics.cpp
+  NovaPose.cpp
+  NovaMotion.cpp
+  NovaGait.cpp
+  NovaServoController.cpp
+
+docs/
+  HARDWARE.md
+  KINEMATICS.md
+  REFERENCES.md
+  ROADMAP.md
 ```
 
-## Build direction
+## Development order
 
-Nova will be developed in small testable stages:
+1. Bench electrical/PWM bring-up
+2. Calibrate all 12 joints
+3. Confirm printed geometry
+4. Validate IK while supported
+5. Connect calibrated IK to servo output
+6. Interpolated sit/stand
+7. Slow 8-phase crawl
+8. IMU attitude correction
+9. ToF obstacle behaviour
+10. Faster gait only after crawl is dependable
 
-1. Electrical and servo bring-up
-2. Per-joint calibration and direction mapping
-3. IMU and ToF driver integration
-4. Body geometry model
-5. Inverse kinematics
-6. Safe stand / sit poses
-7. Static balance testing
-8. Slow crawl gait
-9. Trot and smoother gait generation
-10. IMU-assisted attitude correction and ToF obstacle behaviour
+See `docs/ROADMAP.md`.
 
-See `docs/ROADMAP.md` for the working plan.
+## References
+
+Nova's motion architecture was informed by open SpotMicro projects, especially `antonioasaro/spotmicro_ws` and `mike4192/spotMicro`.
+
+Nova remains standalone ESP32-S3 firmware and does not require ROS2, micro-ROS or Eigen.
